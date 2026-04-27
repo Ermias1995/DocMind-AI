@@ -5,6 +5,7 @@ import { useState } from "react";
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
+  const [text, setText] = useState("");
 
   const uploadFile = async () => {
     if (!file) return;
@@ -18,29 +19,34 @@ export default function Home() {
     });
 
     const data = await res.json();
+
     setMessage(data.message);
+    setText(data.text_preview || "");
   };
 
   return (
-    <main className="p-10">
-      <h1 className="text-3xl font-bold mb-6">Doc Upload</h1>
+    <main className="p-10 max-w-4xl mx-auto">
+      <h1 className="text-3xl font-bold mb-6">Upload PDF</h1>
 
       <input
         type="file"
         onChange={(e) => setFile(e.target.files?.[0] || null)}
-        className="mb-4"
       />
 
-      <br />
+      <div className="mt-4">
+        <button
+          onClick={uploadFile}
+          className="bg-black text-white px-4 py-2 rounded"
+        >
+          Upload
+        </button>
+      </div>
 
-      <button
-        onClick={uploadFile}
-        className="bg-black text-white px-4 py-2 rounded cursor-pointer"
-      >
-        Upload
-      </button>
+      <p className="mt-4 font-medium">{message}</p>
 
-      <p className="mt-4">{message}</p>
+      <div className="mt-8 border p-4 rounded whitespace-pre-wrap">
+        {text}
+      </div>
     </main>
   );
 }
