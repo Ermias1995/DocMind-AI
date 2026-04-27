@@ -6,6 +6,7 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
   const [text, setText] = useState("");
+  const [chunks, setChunks] = useState<string[]>([]);
 
   const uploadFile = async () => {
     if (!file) return;
@@ -22,6 +23,7 @@ export default function Home() {
 
     setMessage(data.message);
     setText(data.text_preview || "");
+    setChunks(data.sample_chunks || []);
   };
 
   return (
@@ -44,8 +46,13 @@ export default function Home() {
 
       <p className="mt-4 font-medium">{message}</p>
 
-      <div className="mt-8 border p-4 rounded whitespace-pre-wrap">
-        {text}
+      <div className="mt-8 space-y-4">
+        {chunks.map((chunk, index) => (
+          <div key={index} className="border p-4 rounded">
+            <h3 className="font-bold mb-2">Chunk {index + 1}</h3>
+            <p className="whitespace-pre-wrap">{chunk}</p>
+          </div>
+        ))}
       </div>
     </main>
   );

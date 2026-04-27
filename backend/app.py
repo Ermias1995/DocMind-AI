@@ -16,6 +16,19 @@ app.add_middleware(
 
 UPLOAD_DIR = "uploads"
 
+def chunk_text(text, chunk_size=500, overlap=100):
+    chunks = []
+    start = 0
+
+    while start < len(text):
+        end = start + chunk_size
+        chunk = text[start:end]
+        chunks.append(chunk)
+
+        start += chunk_size - overlap
+
+    return chunks
+
 @app.get("/")
 def home():
     return {"message": "Backend running"}
@@ -37,8 +50,12 @@ async def upload_file(file: UploadFile = File(...)):
 
         doc.close()
 
+    # Chunk the text
+    chunks = chunk_text(extracted_text)
+
     return {
         "filename": file.filename,
         "message": "Upload successful",
-        "text_preview": extracted_text[:3000]
+        "total_chunks": len(chunks),
+        "sample_chunks": chunks[:3]  # send only first 3
     }
