@@ -5,8 +5,9 @@ import { useState } from "react";
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [message, setMessage] = useState("");
-  const [text, setText] = useState("");
   const [chunks, setChunks] = useState<string[]>([]);
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState("");
 
   const uploadFile = async () => {
     if (!file) return;
@@ -22,9 +23,21 @@ export default function Home() {
     const data = await res.json();
 
     setMessage(data.message);
-    setText(data.text_preview || "");
     setChunks(data.sample_chunks || []);
   };
+
+  const askQuestion = async () => {
+  const res = await fetch("http://127.0.0.1:8000/ask", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ question }),
+  });
+
+  const data = await res.json();
+  setAnswer(data.answer);
+};
 
   return (
     <main className="p-10 max-w-4xl mx-auto">
@@ -54,6 +67,26 @@ export default function Home() {
           </div>
         ))}
       </div>
+
+      <div className="mt-10">
+      <input
+        value={question}
+        onChange={(e) => setQuestion(e.target.value)}
+        placeholder="Ask question..."
+        className="border p-2 w-full"
+      />
+
+      <button
+        onClick={askQuestion}
+        className="bg-blue-600 text-white px-4 py-2 mt-2 rounded"
+      >
+        Ask
+      </button>
+
+      <div className="mt-4 border p-4 rounded">
+        {answer}
+      </div>
+    </div>
     </main>
   );
 }
