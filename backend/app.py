@@ -76,11 +76,16 @@ def generate_answer(question: str, context: str) -> str:
     try:
         client = get_client()
         response = client.chat.completions.create(
-            model="openai/gpt-4o",
+            model="gpt-4o",
             messages=[
                 {
                     "role": "system",
-                    "content": "You answer questions using only the provided document context. Keep the answer concise and factual.",
+                    "content": (
+                        "You are a document assistant.\n"
+                        "Answer ONLY using the provided context.\n"
+                        "If the answer is not in the context, say 'I don't know'.\n"
+                        "Be concise and factual."
+                    ),
                 },
                 {
                     "role": "user",
@@ -88,9 +93,8 @@ def generate_answer(question: str, context: str) -> str:
                 },
             ],
             temperature=0,
-            max_tokens=4096,
-            top_p=1,
         )
+
         return response.choices[0].message.content or ""
     except Exception as e:
         logger.error(f"Error generating answer: {str(e)}")
@@ -169,11 +173,16 @@ async def ask_question(data: dict):
 
     scores.sort(reverse=True)
 
-    best_chunk = scores[0][1]
-    answer = generate_answer(question, best_chunk)
+    TOP_K = 3
+
+    top_chunks = [chunk for _, chunk in scores[:TOP_K]]
+
+    combined_context = "\n\n---\n\n".join(top_chunks)
+
+    answer = generate_answer(question, combined_context)
 
     return {
         "question": question,
-        "best_match": best_chunk,
+        "best_match": top_chunks,
         "answer": answer,
     }

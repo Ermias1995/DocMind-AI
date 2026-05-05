@@ -8,6 +8,7 @@ export default function Home() {
   const [chunks, setChunks] = useState<string[]>([]);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState("");
+  const [sources, setSources] = useState<string[]>([]);
 
   const uploadFile = async () => {
     if (!file) return;
@@ -37,6 +38,7 @@ export default function Home() {
 
   const data = await res.json();
   setAnswer(data.answer);
+  setSources(data.sources || []);
 };
 
   return (
@@ -51,7 +53,7 @@ export default function Home() {
       <div className="mt-4">
         <button
           onClick={uploadFile}
-          className="bg-black text-white px-4 py-2 rounded"
+          className="bg-black text-white px-4 py-2 rounded cursor-pointer"
         >
           Upload
         </button>
@@ -78,13 +80,23 @@ export default function Home() {
 
       <button
         onClick={askQuestion}
-        className="bg-blue-600 text-white px-4 py-2 mt-2 rounded"
+        className="bg-blue-600 text-white px-4 py-2 mt-2 rounded cursor-pointer"
       >
         Ask
       </button>
 
       <div className="mt-4 border p-4 rounded">
         {answer}
+      </div>
+
+      <div className="mt-6 space-y-4">
+        <h3 className="font-bold">Sources</h3>
+
+        {sources.map((src, index) => (
+          <div key={index} className="border p-3 rounded text-sm">
+            {src}
+          </div>
+        ))}
       </div>
     </div>
     </main>
