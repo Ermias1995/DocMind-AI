@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 from openai import OpenAI
 import logging
 import math
+from db import SessionLocal
+from sqlalchemy import text
+import uuid
 
 load_dotenv()
 
@@ -14,8 +17,6 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI()
 
-stored_chunks = []
-stored_vectors = []
 
 app.add_middleware(
     CORSMiddleware,
@@ -117,11 +118,13 @@ async def upload_file(file: UploadFile = File(...)):
     try:
         file_path = os.path.join(UPLOAD_DIR, file.filename)
 
+        # Save uploaded file
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
 
         extracted_text = ""
 
+        # Extract PDF text
         if file.filename.endswith(".pdf"):
             doc = fitz.open(file_path)
 
@@ -130,59 +133,127 @@ async def upload_file(file: UploadFile = File(...)):
 
             doc.close()
 
-        chunks = chunk_text(extracted_text)[:10]
+        if not extracted_text.strip():
+            return {
+                "message": "No text found in document",
+                "chunks": 0,
+            }
 
-        if not chunks:
-            return {"message": "No text found", "chunks": 0}
+        # Chunk text
+        chunks = chunk_text(extracted_text)
 
-        global stored_chunks, stored_vectors
+        # Optional: limit chunks during development
+        chunks = chunks[:10]
 
-        stored_chunks = chunks
-
-        # 👇 CRITICAL: add logging
+        # Generate embeddings
         stored_vectors = []
+
         for i, chunk in enumerate(chunks):
             print(f"Embedding chunk {i+1}/{len(chunks)}")
-            vec = get_embedding(chunk)
-            stored_vectors.append(vec)
+
+            vector = get_embedding(chunk)
+
+            stored_vectors.append(vector)
+
+        # Database connection
+        db = SessionLocal()
+
+        # Create document ID
+        document_id = str(uuid.uuid4())
+
+        # Insert document
+        db.execute(
+            text("""
+                INSERT INTO documents (id, name)
+                VALUES (:id, :name)
+            """),
+            {
+                "id": document_id,
+                "name": file.filename,
+            }
+        )
+
+        # Insert chunks
+        for chunk, vector in zip(chunks, stored_vectors):
+
+            vector_string = "[" + ",".join(map(str, vector)) + "]"
+
+            db.execute(
+                text("""
+                    INSERT INTO document_chunks
+                    (document_id, content, embedding)
+                    VALUES (:document_id, :content, :embedding)
+                """),
+                {
+                    "document_id": document_id,
+                    "content": chunk,
+                    "embedding": vector_string,
+                }
+            )
+
+        db.commit()
+        db.close()
 
         return {
-            "message": "Uploaded and embedded",
+            "message": "Uploaded and embedded successfully",
+            "document_id": document_id,
             "chunks": len(chunks),
             "sample_chunks": chunks[:3],
         }
 
     except Exception as e:
         print("UPLOAD ERROR:", str(e))
-        raise
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/ask")
 async def ask_question(data: dict):
-    question = data["question"]
+    try:
+        question = data["question"]
 
-    if not stored_vectors:
-        return {"message": "No document has been uploaded yet"}
+        # Generate embedding for question
+        query_vector = get_embedding(question)
 
-    query_vector = get_embedding(question)
+        vector_string = "[" + ",".join(map(str, query_vector)) + "]"
 
-    scores = []
+        db = SessionLocal()
 
-    for i, vec in enumerate(stored_vectors):
-        score = cosine_similarity(query_vector, vec)
-        scores.append((score, stored_chunks[i]))
+        # Semantic similarity search
+        result = db.execute(
+            text("""
+                SELECT content
+                FROM document_chunks
+                ORDER BY embedding <-> CAST(:embedding AS vector)
+                LIMIT 3
+            """),
+            {
+                "embedding": vector_string
+            }
+        )
 
-    scores.sort(reverse=True)
+        rows = result.fetchall()
 
-    TOP_K = 3
+        db.close()
 
-    top_chunks = [chunk for _, chunk in scores[:TOP_K]]
+        if not rows:
+            return {
+                "message": "No matching document chunks found"
+            }
 
-    combined_context = "\n\n---\n\n".join(top_chunks)
+        # Extract top chunks
+        top_chunks = [row[0] for row in rows]
 
-    answer = generate_answer(question, combined_context)
+        # Combine context
+        combined_context = "\n\n---\n\n".join(top_chunks)
 
-    return {
-        "question": question,
-        "best_match": top_chunks,
-        "answer": answer,
-    }
+        # Generate AI answer
+        answer = generate_answer(question, combined_context)
+
+        return {
+            "question": question,
+            "answer": answer,
+            "sources": top_chunks,
+        }
+
+    except Exception as e:
+        print("ASK ERROR:", str(e))
+        raise HTTPException(status_code=500, detail=str(e))
