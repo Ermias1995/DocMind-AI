@@ -27,16 +27,20 @@ export async function uploadDocument(file: File) {
   return res.json();
 }
 
-export async function askQuestion(question: string) {
-  const token = await getAccessToken();
-
+export async function askQuestion(
+  question: string,
+  documentId: string
+) {
   const res = await fetch(`${API_URL}/ask`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
     },
-    body: JSON.stringify({ question }),
+
+    body: JSON.stringify({
+      question,
+      document_id: documentId,
+    }),
   });
 
   return res.json();
