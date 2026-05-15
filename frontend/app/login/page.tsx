@@ -23,7 +23,7 @@ export default function LoginPage() {
   console.log("------Login successfull redirecting to dashboard------")
   alert("------Login successfull redirecting to dashboard------")
   // force full page reload
-  window.location.href = "/dashboard";
+  router.push("/dashboard");
 };
 
   return (

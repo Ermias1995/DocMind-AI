@@ -257,3 +257,28 @@ async def ask_question(data: dict):
     except Exception as e:
         print("ASK ERROR:", str(e))
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/documents")
+async def get_documents():
+
+    db = SessionLocal()
+
+    result = db.execute(
+        text("""
+            SELECT id, name
+            FROM documents
+            ORDER BY created_at DESC
+        """)
+    )
+
+    documents = []
+
+    for row in result:
+        documents.append({
+            "id": row.id,
+            "name": row.name,
+        })
+
+    db.close()
+
+    return documents
