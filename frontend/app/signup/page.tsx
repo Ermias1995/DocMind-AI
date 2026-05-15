@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useRouter } from "next/navigation";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const router = useRouter();
 
   const signup = async () => {
     const { error } = await supabase.auth.signUp({
@@ -17,6 +19,7 @@ export default function SignupPage() {
       alert(error.message);
     } else {
       alert("Signup successful");
+      router.push("/dashboard"); 
     }
   };
 
