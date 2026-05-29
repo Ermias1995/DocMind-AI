@@ -232,6 +232,7 @@ async def ask_question(data: dict):
 
         rows = result.fetchall()
 
+        db.commit()
         db.close()
 
         if not rows:
@@ -247,6 +248,23 @@ async def ask_question(data: dict):
 
         # Generate AI answer
         answer = generate_answer(question, combined_context)
+
+        db.execute(
+            text("""
+                INSERT INTO chats
+                (document_id, question, answer)
+                VALUES (
+                    :document_id,
+                    :question,
+                    :answer
+                )
+            """),
+            {
+                "document_id": document_id,
+                "question": question,
+                "answer": answer,
+            }
+        )
 
         return {
             "question": question,
@@ -282,3 +300,32 @@ async def get_documents():
     db.close()
 
     return documents
+
+@app.get("/chat/{document_id}")
+async def get_chat_history(document_id: str):
+
+    db = SessionLocal()
+
+    result = db.execute(
+        text("""
+            SELECT question, answer
+            FROM chats
+            WHERE document_id = :document_id
+            ORDER BY created_at ASC
+        """),
+        {
+            "document_id": document_id,
+        }
+    )
+
+    messages = []
+
+    for row in result:
+        messages.append({
+            "question": row.question,
+            "answer": row.answer,
+        })
+
+    db.close()
+
+    return messages
